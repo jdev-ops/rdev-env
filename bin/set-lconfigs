@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+_set_pconfigs
+
+chmod +x cli/srv
+
+command -v jq >/dev/null 2>&1
+jq_result=$?
+
+if [ $jq_result -eq 0 ]; then
+  jq . .rdev-configs/configs.json >.rdev-configs/configs2.json
+  rm .rdev-configs/configs.json
+  mv .rdev-configs/configs2.json .rdev-configs/configs.json
+fi

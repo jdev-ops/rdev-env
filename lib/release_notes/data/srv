@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+#set -euxo pipefail
+
+command -v jq >/dev/null 2>&1
+jq_result=$?
+
+if [ $jq_result -ne 0 ]; then
+  echo "You do not have jq in your path, please install it to continue"
+  exit 1
+fi
+
+node=$(cat .rdev-configs/configs.json | jq -r '.sname')
+cookie=$(cat .rdev-configs/configs.json | jq -r '.cookie')
+
+iex --sname $node --cookie $cookie -S mix
+

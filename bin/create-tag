@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+first_commit=$(git rev-list --max-parents=0 HEAD)
+
+main_branch="${CREATE_TAG_MASTER_BRANCH:-master}"
+dev_branch="${CREATE_TAG_DEVELOP_BRANCH:-develop}"
+insertion_position="${CHANGELOG_INSERTION_POSITION:-2}"
+
+main_exists=$(git show-ref refs/heads/$main_branch)
+dev_exists=$(git show-ref refs/heads/$dev_branch)
+
+if [ -z "$main_exists" ]; then
+  echo "The branch $main_branch does not exists"
+  exit 1
+fi
+
+if [ -z "$dev_exists" ]; then
+  echo "The branch $dev_branch does not exists"
+  exit 1
+fi
+
+temporal_file_name="___output.txt"
+
+working_status=$(git ls-files -m | wc -l)
+if [ $working_status -ne 0 ]; then
+  echo "Please commit your changes or stash them before you run this program."
+  exit 1
+fi
+
+MIX_FILE=mix.exs
+SBT_FILE=build.sbt
+if [ -f "$MIX_FILE" ]; then
+  TAG=v$(mix run -e "Mix.shell().info(Mix.Project.config()[:version])" | tail -n 1)
+elif [ -f "$SBT_FILE" ]; then
+  TAG=v$(sbt -Dsbt.supershell=false -error "print version" | tail -n 1 | sed -e 's/^[[:space:]]*//' | sed 's/ *$//g')
+elif [ $# -eq 0 ]; then
+  echo you schould provide the tag value as a parameter to the script
+  exit 1
+else
+  TAG=$1
+fi
+
+command -v jq >/dev/null 2>&1
+jq_result=$?
+
+command -v yq >/dev/null 2>&1
+yq_result=$?
+
+git checkout $dev_branch
+
+CONFIG_FILE=.rdev-configs/configs.json
+if [ -f "$CONFIG_FILE" ] && [ $jq_result -eq 0 ] && [ $yq_result -eq 0 ]; then
+
+  readarray -t arr < <(cat $CONFIG_FILE | jq '."k8s-configs"' | jq -r '.[].file_path')
+  readarray -t arra < <(cat $CONFIG_FILE | jq '."k8s-configs"' | jq -r '.[].yaml_path')
+
+  for index in "${!arr[@]}"; do
+    url=$(yq -e "${arra[$index]}" "${arr[$index]}")
+    prefix=$(python -c "url=\"$url\";pos=url.rfind(\":\");print(url[:pos+1])")
+    x="IMG='${prefix}${TAG}' yq -e '${arra[$index]} |= strenv(IMG)' -i ${arr[$index]}"
+    eval $x
+    git add "${arr[$index]}"
+  done
+fi
+
+if [ -f "$CONFIG_FILE" ]; then
+  if [ $jq_result -ne 0 ]; then
+    echo "The k8s configurations can not be apply because you do not have jq in your path"
+  fi
+  if [ $yq_result -ne 0 ]; then
+    echo "The k8s configurations can not be apply because you do not have yq in your path"
+  fi
+fi
+
+action="${CREATE_TAG_ACTION:-all}"
+
+_rdev $first_commit $TAG generate $temporal_file_name
+if [ $? -eq 0 ]; then
+  echo "The following lines are going to be added to the $insertion_position position of the CHANGELOG.md file:"
+  cat $temporal_file_name
+  echo
+  read -p "Are you sure? " -n 1 -r
+  echo # (optional) move to a new line
+
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    _rdev $first_commit $TAG write $temporal_file_name
+    git add CHANGELOG.md
+
+    if [ $action = all ]; then
+      git commit -a -m "Updating changelog"
+      git checkout $main_branch
+      git merge $dev_branch --no-ff -m "Creating $1"
+      git tag $TAG
+    fi
+  fi
+
+else
+  exit 1
+
+fi

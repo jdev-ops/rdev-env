@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+_pre_push
+chmod +x .git/hooks/pre-push

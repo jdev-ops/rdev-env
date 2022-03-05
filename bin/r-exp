@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+#set -euxo pipefail
+
+command -v jq >/dev/null 2>&1
+jq_result=$?
+
+if [ $jq_result -ne 0 ]; then
+  echo "You do not have jq in your path, please install it to continue"
+  exit 1
+fi
+
+rand() {
+  dd count=1 bs=2 if=/dev/urandom 2>/dev/null | od -x | awk 'NR==1{print $2}'
+}
+
+node=$(cat .rdev-configs/configs.json | jq -r '.sname')
+cookie=$(cat .rdev-configs/configs.json | jq -r '.cookie')
+
+elixir --cookie $cookie \
+  --sname "rpc-$(rand)" \
+  --rpc-eval $node "$1"

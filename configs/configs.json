@@ -1,0 +1,28 @@
+{
+  "sections": [
+    {
+      "pattern": "^(?i:.?.?added.*)",
+      "output": "### Added"
+    },
+    {
+      "pattern": "^(?i:.?.?bug.*)",
+      "output": "### Bug"
+    },
+    {
+      "pattern": "^(?i:.?.?changed.*)",
+      "output": "### Changed"
+    },
+    {
+      "pattern": "^(?i:.?.?fixed.*)",
+      "output": "### Fixed"
+    },
+    {
+      "pattern": "^(?i:.?.?hotfix.*)",
+      "output": "### Hot Fix"
+    }
+  ],
+  "k8s-configs": {
+    "path": "k8s",
+    "dir-prefix": "pro"
+  }
+}
