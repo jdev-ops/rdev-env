@@ -13,5 +13,6 @@ fi
 node=$(cat .rdev-configs/configs.json | jq -r '.sname')
 cookie=$(cat .rdev-configs/configs.json | jq -r '.cookie')
 
-iex --sname $node --cookie $cookie -S mix
+next=$(ls -1 logs*.log 2> /dev/null | wc -l)
 
+iex --sname $node --cookie $cookie -S mix > logs$next.log 2>&1
